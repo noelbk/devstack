@@ -35,7 +35,6 @@ function install_contrail() {
 	apt_get install libevent-dev libxml2-dev libxslt-dev
 	apt_get install uml-utilities
 	apt_get install libvirt-bin
-	apt_get install npm
 
         if ! which redis-server > /dev/null 2>&1 ; then
             sudo apt-get install libjemalloc1
@@ -53,13 +52,24 @@ function install_contrail() {
 	sudo yum -y install tunctl
 	sudo yum -y install java-1.7.0-openjdk
 	sudo yum -y install libvirt-bin
-	sudo yum -y install npm
 
         if ! which redis-server > /dev/null 2>&1 ; then
             wget http://mir01.syntis.net/atomic/fedora/17/x86_64/RPMS/redis-2.6.13-3.fc17.art.x86_64.rpm
             sudo yum -y install redis-2.6.13-3.fc17.art.x86_64.rpm
             rm -rf redis-2.6.13-3.fc17.art.x86_64.rpm
         fi
+    fi
+
+    # install node which brings npm that's used in fetch_packages.py
+    if ! which node > /dev/null 2>&1 || ! which npm > /dev/null 2>&1 ; then
+        wget http://nodejs.org/dist/v0.8.15/node-v0.8.15.tar.gz -O node-v0.8.15.tar.gz
+        tar -xf node-v0.8.15.tar.gz
+        contrail_cwd=$(pwd)
+        cd node-v0.8.15
+        ./configure; make; sudo make install
+        cd ${contrail_cwd}
+        rm -rf node-v0.8.15.tar.gz
+        rm -rf node-v0.8.15
     fi
 
     # api server requirements
@@ -193,20 +203,6 @@ function install_contrail() {
         contrail_cwd=$(pwd)
         cd /opt/stack/oslo.config
         sudo python setup.py install
-        cd ${contrail_cwd}
-    fi
-    if ! which node > /dev/null 2>&1 ; then
-        contrail_cwd=$(pwd)
-        cd $CONTRAIL_SRC/third_party
-        if [ ! -d $CONTRAIL_SRC/third_party/node-v0.8.15 ]; then
-            wget http://nodejs.org/dist/v0.8.15/node-v0.8.15.tar.gz -O node-v0.8.15.tar.gz
-            tar -xf node-v0.8.15.tar.gz
-        fi
-        cd node-v0.8.15
-        ./configure; make; sudo make install
-        cd ${contrail_cwd}
-        rm -rf node-v0.8.15.tar.gz
-        rm -rf node-v0.8.15
         cd ${contrail_cwd}
     fi
     if [ ! -d $CONTRAIL_SRC/contrail-web-core/node_modules ]; then
