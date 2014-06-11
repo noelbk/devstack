@@ -6,7 +6,6 @@ SERVICE_HOST=192.168.56.119 # control1
 # the interface that contrail's vhost0 should take over
 PHYSICAL_INTERFACE=eth0
 
-ENABLE_CONTRAIL=yes
 Q_PLUGIN=contrail
 
 STACK_DIR=$(cd $(dirname $0) && pwd)
@@ -34,10 +33,6 @@ SERVICE_TOKEN=contrail123
 SERVICE_PASSWORD=contrail123
 ADMIN_PASSWORD=contrail123
 DATABASE_TYPE=mysql
-#
-# use contrail forked neutron repo
-NEUTRON_REPO=https://github.com/dsetia/neutron.git
-NEUTRON_BRANCH=master
 
 # repo proto is https or (default) ssh. Leave commented for ssh
 # CONTRAIL_REPO_PROTO=https

@@ -6,7 +6,6 @@ CONTRAIL_VGW_INTERFACE=vgw
 CONTRAIL_VGW_PUBLIC_SUBNET=10.99.99.0/24 #
 CONTRAIL_VGW_PUBLIC_NETWORK=default-domain:demo:public:public
 
-ENABLE_CONTRAIL=yes
 PHYSICAL_INTERFACE=eth0
 
 MULTI_HOST=True
@@ -50,10 +49,6 @@ RABBIT_PASSWORD=contrail123
 SERVICE_TOKEN=contrail123
 SERVICE_PASSWORD=contrail123
 ADMIN_PASSWORD=contrail123
-
-# use contrail forked neutron repo
-NEUTRON_REPO=https://github.com/dsetia/neutron.git
-NEUTRON_BRANCH=master
 
 # repo proto is https or (default) ssh. Leave commented for ssh
 # CONTRAIL_REPO_PROTO=https

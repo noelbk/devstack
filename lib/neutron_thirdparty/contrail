@@ -34,6 +34,7 @@ function install_contrail() {
 	apt_get install python-dev autoconf automake build-essential libtool
 	apt_get install libevent-dev libxml2-dev libxslt-dev
 	apt_get install uml-utilities
+	apt_get install libvirt-bin
 
         if ! which redis-server > /dev/null 2>&1 ; then
             sudo apt-get install libjemalloc1
@@ -50,12 +51,25 @@ function install_contrail() {
 	sudo yum -y install libevent libevent-devel libxml2-devel libxslt-devel
 	sudo yum -y install tunctl
 	sudo yum -y install java-1.7.0-openjdk
+	sudo yum -y install libvirt-bin
 
         if ! which redis-server > /dev/null 2>&1 ; then
             wget http://mir01.syntis.net/atomic/fedora/17/x86_64/RPMS/redis-2.6.13-3.fc17.art.x86_64.rpm
             sudo yum -y install redis-2.6.13-3.fc17.art.x86_64.rpm
             rm -rf redis-2.6.13-3.fc17.art.x86_64.rpm
         fi
+    fi
+
+    # install node which brings npm that's used in fetch_packages.py
+    if ! which node > /dev/null 2>&1 || ! which npm > /dev/null 2>&1 ; then
+        wget http://nodejs.org/dist/v0.8.15/node-v0.8.15.tar.gz -O node-v0.8.15.tar.gz
+        tar -xf node-v0.8.15.tar.gz
+        contrail_cwd=$(pwd)
+        cd node-v0.8.15
+        ./configure; make; sudo make install
+        cd ${contrail_cwd}
+        rm -rf node-v0.8.15.tar.gz
+        rm -rf node-v0.8.15
     fi
 
     # api server requirements
@@ -68,6 +82,7 @@ function install_contrail() {
     sudo pip install kazoo pyinotify
     sudo pip install bottle
 
+    CONTRAIL_REPO=${CONTRAIL_REPO:-default.xml}
     CONTRAIL_REPO_PROTO=${CONTRAIL_REPO_PROTO:-ssh}
     CONTRAIL_SRC=${CONTRAIL_SRC:-/opt/stack/contrail}
     mkdir -p $CONTRAIL_SRC/third_party
@@ -77,16 +92,20 @@ function install_contrail() {
         git config --global --get user.name || git config --global user.name "Anonymous"
         git config --global --get user.email || git config --global user.email "anonymous@nowhere.com"
         if [ "$CONTRAIL_REPO_PROTO" == "ssh" ]; then
-            repo init -u git@github.com:Juniper/contrail-vnc
+            repo init -u git@github.com:Juniper/contrail-vnc -m $CONTRAIL_REPO
         else
-            repo init -u https://github.com/Juniper/contrail-vnc
+            repo init -u https://github.com/Juniper/contrail-vnc -m $CONTRAIL_REPO
             sed -i 's/fetch=".."/fetch=\"https:\/\/github.com\/Juniper\/\"/' .repo/manifest.xml
         fi
     fi
-    repo sync
-    python third_party/fetch_packages.py
-    (cd third_party/thrift-*; touch configure.ac README ChangeLog; autoreconf --force --install)
-    scons
+
+    # If CONTRAIL_REPO_SKIP_SYNC is not set, sync the repo.
+    if [ -z $CONTRAIL_REPO_SKIP_SYNC ]; then
+        repo sync
+        python third_party/fetch_packages.py
+        (cd third_party/thrift-*; touch configure.ac README ChangeLog; autoreconf --force --install)
+        scons
+    fi
     cd ${contrail_cwd}
 
     # install contrail modules
@@ -95,9 +114,8 @@ function install_contrail() {
 
     # install VIF driver
     sudo pip install $CONTRAIL_SRC/build/noarch/nova_contrail_vif/dist/nova_contrail_vif*.tar.gz
-
-    # install neutron patch after VNC api is built and installed
-    # test_install_neutron_patch
+    # install Neutron OpenContrail plugin
+    sudo pip install -e $CONTRAIL_SRC/openstack/neutron_plugin/
 
     # get cassandra
     if ! which cassandra > /dev/null 2>&1 ; then
@@ -119,9 +137,9 @@ function install_contrail() {
 	    # See http://wiki.apache.org/cassandra/DebianPackaging
 	    echo "deb http://www.apache.org/dist/cassandra/debian 12x main" | \
 		sudo tee /etc/apt/sources.list.d/cassandra.list
-	    gpg --keyserver pgp.mit.edu --recv-keys F758CE318D77295D
+	    gpg --keyserver-options timeout=1 --keyserver pgp.mit.edu --recv-keys F758CE318D77295D
 	    gpg --export --armor F758CE318D77295D | sudo apt-key add -
-	    gpg --keyserver pgp.mit.edu --recv-keys 2B5C1B00
+	    gpg --keyserver-options timeout=1 --keyserver pgp.mit.edu --recv-keys 2B5C1B00
 	    gpg --export --armor 2B5C1B00 | sudo apt-key add -
 
 	    apt_get update
@@ -187,21 +205,11 @@ function install_contrail() {
         sudo python setup.py install
         cd ${contrail_cwd}
     fi
-    if ! which node > /dev/null 2>&1 ; then
-        wget http://nodejs.org/dist/v0.8.15/node-v0.8.15.tar.gz -O node-v0.8.15.tar.gz
-        tar -xf node-v0.8.15.tar.gz
-        contrail_cwd=$(pwd)
-        cd node-v0.8.15
-        ./configure; make; sudo make install
-        cd ${contrail_cwd}
-        rm -rf node-v0.8.15.tar.gz
-        rm -rf node-v0.8.15
-    fi
     if [ ! -d $CONTRAIL_SRC/contrail-web-core/node_modules ]; then
         contrail_cwd=$(pwd)
         cd $CONTRAIL_SRC/contrail-web-core
-        ./fetch_packages.sh
-        make prod-env
+        make fetch-pkgs-prod
+        make dev-env REPO=webController
     fi
 }
 
@@ -228,18 +236,6 @@ function apply_patch() {
     fi
 }
 
-function test_install_neutron_patch() { 
-    apply_patch $TOP_DIR/contrail/neutron_v4.patch $DEST/neutron
-}   
-
-function test_install_nova_patch() { 
-    apply_patch $TOP_DIR/contrail/nova_v4.patch $DEST/nova
-    if [ -e $DEST/nova/plugins/contrail/config_parser.py ]; then
-        sudo cp $DEST/nova/plugins/contrail/config_parser.py /usr/bin/config_parser
-        sudo chmod +x /usr/bin/config_parser
-    fi
-}   
-
 # take over physical interface
 function insert_vrouter() {
     source /etc/contrail/agent_param
@@ -261,7 +257,7 @@ function insert_vrouter() {
         || echo "Error creating interface: $DEVICE"
 
     echo "Adding $DEVICE to vrouter"
-    sudo $VIF --add $DEVICE --mac $DEV_MAC --vrf 0 --mode x --type vhost \
+    sudo $VIF --add $DEVICE --mac $DEV_MAC --vrf 0 --xconnect $dev --mode x --type vhost \
 	|| echo "Error adding $DEVICE to vrouter"
 
     echo "Adding $dev to vrouter"
@@ -432,7 +428,7 @@ EOF2
     cat > $TOP_DIR/bin/vnsw.hlpr <<END
 #! /bin/bash
 PATH=$TOP_DIR/bin:$PATH
-LD_LIBRARY_PATH=/opt/stack/contrail/build/lib $CONTRAIL_SRC/build/debug/vnsw/agent/vnswad $VROUTER_LOGFILE
+LD_LIBRARY_PATH=/opt/stack/contrail/build/lib $CONTRAIL_SRC/build/debug/vnsw/agent/contrail/vnswad $VROUTER_LOGFILE
 END
     chmod a+x $TOP_DIR/bin/vnsw.hlpr
     screen_it agent "sudo $TOP_DIR/bin/vnsw.hlpr"

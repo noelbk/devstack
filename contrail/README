@@ -10,8 +10,8 @@ Notes:
 1) You will need to install kernel-devel package to compile OpenContrail
    Vrouter module
 2) Stack.sh will create an additional screen "contrail" for contrail modules.
-3) This fork includes Neutron and Nova patches. These patches have been
-   seperately submitted for review.
+3) This fork use Nova and Neutron upstream master repositories and the
+   OpenContrail Nova VIF driver and Neutron plugin repositories.
 4) OpenStack + OpenContrail has been tested on FC17, Ubuntu 12.04 and 13.10
 5) Repo tool uses SSH by default. Use ssh-agent to forward keys to target 
    running devstack or upload host's SSH keys to the github account.
