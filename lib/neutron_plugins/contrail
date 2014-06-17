@@ -36,8 +36,8 @@ function is_neutron_ovs_base_plugin() {
 }
 
 function has_neutron_plugin_security_group() {
-    # False
-    return 1
+    # True
+    return 0
 }
 
 function neutron_plugin_check_adv_test_requirements() {
