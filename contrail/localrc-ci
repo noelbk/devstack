@@ -1,3 +1,5 @@
+HOST_IP=
+
 STACK_DIR=$(cd $(dirname $0) && pwd)
 
 SCREEN_LOGDIR=$STACK_DIR/log/screens
