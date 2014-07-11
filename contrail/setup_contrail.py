@@ -473,27 +473,6 @@ HWADDR=%s
 
         # collector in Phase 2
         if 'collector' in self._args.role:
-            REDIS_UVE="/etc/contrail/redis-uve.conf"
-            REDIS_QUERY="/etc/contrail/redis-query.conf"
-            if os.path.isfile('/etc/redis/redis.conf'):
-                REDIS_CONF="/etc/redis/redis.conf"
-            else:
-                REDIS_CONF="/etc/redis.conf"
-            self.run_shell("cp %s %s" %(REDIS_CONF, REDIS_UVE))
-            self.run_shell("cp %s %s" %(REDIS_CONF, REDIS_QUERY))
-
-            self.replace_in_file(REDIS_UVE, 'pidfile /var/run/redis/redis.pid', 'pidfile /var/run/redis/redis-uve.pid')
-            self.replace_in_file(REDIS_UVE, 'port 6379', 'port 6381')
-            self.replace_in_file(REDIS_UVE, 'bind 127.0.0.1', '#bind 127.0.0.1')
-            self.replace_in_file(REDIS_UVE, 'logfile /var/log/redis/redis-server.log', 'logfile /var/log/redis/redis-uve.log')
-            self.replace_in_file(REDIS_UVE, 'dbfilename dump.rdb', 'dbfilename dump-uve.rdb')
-
-            self.replace_in_file(REDIS_QUERY, 'pidfile /var/run/redis/redis.pid', 'pidfile /var/run/redis/redis-query.pid')
-            self.replace_in_file(REDIS_QUERY, 'port 6379', 'port 6380')
-            self.replace_in_file(REDIS_QUERY, 'bind 127.0.0.1', '#bind 127.0.0.1')
-            self.replace_in_file(REDIS_QUERY, 'logfile /var/log/redis/redis-server.log', 'logfile /var/log/redis/redis-query.log')
-            self.replace_in_file(REDIS_QUERY, 'dbfilename dump.rdb', 'dbfilename dump-query.rdb')
-
             template_vals = {'__contrail_discovery_ip__': self._args.discovery_ip,
                              '__contrail_host_ip__': self._args.collector_ip,
                              '__contrail_cassandra_server_list__' : ' '.join('%s:%s' % cassandra_server for cassandra_server in cassandra_server_list),
@@ -510,8 +489,8 @@ HWADDR=%s
                              '__contrail_log_local__': '--log-local',
                              '__contrail_log_file__': '--log-file=/var/log/contrail/qe.log',
                              '__contrail_collectors__' : ' '.join('%s:%s' % collector_server for collector_server in collector_server_list),
-                             '__contrail_redis_server__' : collector_ip,
-                             '__contrail_redis_server_port__' : 6380,
+                             '__contrail_redis_server__' : '127.0.0.1',
+                             '__contrail_redis_server_port__' : 6379,
                             }
             self._template_substitute_write(qe_param_template,
                                             template_vals, temp_dir_name + '/qed_param')

@@ -62,14 +62,20 @@ function install_contrail() {
 
     # install node which brings npm that's used in fetch_packages.py
     if ! which node > /dev/null 2>&1 || ! which npm > /dev/null 2>&1 ; then
-        wget http://nodejs.org/dist/v0.8.15/node-v0.8.15.tar.gz -O node-v0.8.15.tar.gz
-        tar -xf node-v0.8.15.tar.gz
-        contrail_cwd=$(pwd)
-        cd node-v0.8.15
-        ./configure; make; sudo make install
-        cd ${contrail_cwd}
-        rm -rf node-v0.8.15.tar.gz
-        rm -rf node-v0.8.15
+        if is_ubuntu; then
+            wget https://launchpad.net/~opencontrail/+archive/ubuntu/ppa/+files/nodejs_0.8.15-1contrail1_amd64.deb
+            sudo dpkg -i nodejs_0.8.15-1contrail1_amd64.deb
+            rm -rf nodejs_0.8.15-1contrail1_amd64.deb
+        else
+            wget http://nodejs.org/dist/v0.8.15/node-v0.8.15.tar.gz -O node-v0.8.15.tar.gz
+            tar -xf node-v0.8.15.tar.gz
+            contrail_cwd=$(pwd)
+            cd node-v0.8.15
+            ./configure; make; sudo make install
+            cd ${contrail_cwd}
+            rm -rf node-v0.8.15.tar.gz
+            rm -rf node-v0.8.15
+        fi
     fi
 
     # api server requirements
@@ -208,6 +214,7 @@ function install_contrail() {
     if [ ! -d $CONTRAIL_SRC/contrail-web-core/node_modules ]; then
         contrail_cwd=$(pwd)
         cd $CONTRAIL_SRC
+        python contrail-webui-third-party/fetch_packages.py
         sed -ie "s/config\.discoveryService\.enable.*$/config\.discoveryService\.enable = false;/" contrail-web-core/config/config.global.js
         sed -ie "s/config\.featurePkg\.webController\.path.*$/config\.featurePkg\.webController\.path = '\/opt\/stack\/contrail\/contrail-web-controller';/" contrail-web-core/config/config.global.js
         sed -ie "s/config\.core_path.*$/config\.core_path = '\/opt\/stack\/contrail\/contrail-web-core';/" contrail-web-controller/webroot/common/js/controller.config.global.js
@@ -370,13 +377,6 @@ function start_contrail() {
     screen_it control "sudo PATH=$PATH:$TOP_DIR/bin LD_LIBRARY_PATH=/opt/stack/contrail/build/lib $CONTRAIL_SRC/build/debug/control-node/control-node --IFMAP.server_url https://${IFMAP_SERVER}:${IFMAP_PORT} --IFMAP.user ${IFMAP_USER} --IFMAP.password ${IFMAP_PASWD} --DEFAULT.hostname ${HOSTNAME} --DEFAULT.hostip ${HOSTIP} --DEFAULT.bgp_port ${BGP_PORT} ${CERT_OPTS} ${LOG_LOCAL} --DEFAULT.collectors ${COLLECTOR}:${COLLECTOR_PORT}"
 
     # collector services
-    # redis-uve
-    screen_it redis-u "sudo redis-server /etc/contrail/redis-uve.conf"
-    sleep 2
-    # redis-query
-    screen_it redis-q "sudo redis-server /etc/contrail/redis-query.conf"
-    sleep 2
-
     # collector/vizd
     source /etc/contrail/vizd_param
     screen_it vizd "sudo PATH=$PATH:$TOP_DIR/bin LD_LIBRARY_PATH=/opt/stack/contrail/build/lib $CONTRAIL_SRC/build/debug/analytics/vizd --DEFAULT.cassandra_server_list ${CASSANDRA_SERVER_LIST} --DEFAULT.hostip ${HOST_IP} --DEFAULT.log_file /var/log/contrail/collector.log"
