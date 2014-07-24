@@ -64,7 +64,7 @@ CASS_HEAP_NEWSIZE=200M
 # CONTRAIL_REPO_SKIP_SYNC=yes
 
 # uncomment to use specific contrail bits instead of t-o-t
-CONTRAIL_REPO=devstack.xml
+CONTRAIL_REPO=devstack-ci.xml
 
 # Set these to use neutron repo in openstack
 Q_PLUGIN_CLASS=neutron.plugins.opencontrail.contrail_plugin_core.NeutronPluginContrailCoreV2
