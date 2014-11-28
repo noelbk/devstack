@@ -74,7 +74,7 @@ CEPH_REPLICAS_SEQ=$(seq ${CEPH_REPLICAS})
 # ------------
 
 function get_ceph_version {
-    local ceph_version_str=$(sudo ceph daemon mon.$(hostname) version | cut -d '"' -f 4 | cut -f 1,2 -d '.')
+    local ceph_version_str=$(sudo ceph daemon mon.$(hostname) version | python -c 'import json; import sys; v=json.loads(sys.stdin.read()); print v["version"]')
     echo $ceph_version_str
 }
 
@@ -117,9 +117,24 @@ function cleanup_ceph {
     fi
 }
 
+# configure ceph on a compute node
+function configure_ceph_compute_only {
+    for i in /var/lib/ceph/bootstrap-osd/ceph.keyring \
+	"${CEPH_CONF_DIR}/ceph.client.admin.keyring" \
+	"${CEPH_CONF_FILE}"; do
+	echo $i
+	ssh $SERVICE_HOST sudo cat $i | sudo tee $i
+    done
+}
+
 # configure_ceph() - Set config files, create data dirs, etc
 function configure_ceph {
     local count=0
+
+    if [ -n "$SERVICE_HOST" -a "$SERVICE_HOST" != "$HOST_IP" ]; then
+	configure_ceph_compute_only
+	return
+    fi
 
     # create a backing file disk
     create_disk ${CEPH_DISK_IMAGE} ${CEPH_DATA_DIR} ${CEPH_LOOPBACK_DISK_SIZE}
@@ -132,7 +147,7 @@ function configure_ceph {
     sudo mkdir /var/lib/ceph/mon/ceph-$(hostname)
 
     # create a default ceph configuration file
-    sudo tee -a ${CEPH_CONF_FILE} > /dev/null <<EOF
+    sudo tee ${CEPH_CONF_FILE} > /dev/null <<EOF
 [global]
 fsid = ${CEPH_FSID}
 mon_initial_members = $(hostname)
@@ -145,17 +160,17 @@ osd crush chooseleaf type = 0
 osd journal size = 100
 EOF
 
-    # bootstrap the ceph monitor
-    sudo ceph-mon -c ${CEPH_CONF_FILE} --mkfs -i $(hostname) --keyring /var/lib/ceph/tmp/keyring.mon.$(hostname)
-    if is_ubuntu; then
+# bootstrap the ceph monitor
+sudo ceph-mon -c ${CEPH_CONF_FILE} --mkfs -i $(hostname) --keyring /var/lib/ceph/tmp/keyring.mon.$(hostname)
+if is_ubuntu; then
     sudo touch /var/lib/ceph/mon/ceph-$(hostname)/upstart
-        sudo initctl emit ceph-mon id=$(hostname)
-    else
+    sudo initctl emit ceph-mon id=$(hostname)
+else
     sudo touch /var/lib/ceph/mon/ceph-$(hostname)/sysvinit
-        sudo service ceph start mon.$(hostname)
-    fi
+    sudo service ceph start mon.$(hostname)
+fi
 
-    # wait for the admin key to come up otherwise we will not be able to do the actions below
+# wait for the admin key to come up otherwise we will not be able to do the actions below
     until [ -f ${CEPH_CONF_DIR}/ceph.client.admin.keyring ]; do
         echo_summary "Waiting for the Ceph admin key to be ready..."
 
@@ -169,7 +184,8 @@ EOF
     # pools data and metadata were removed in the Giant release so depending on the version we apply different commands
     local ceph_version=$(get_ceph_version)
     # change pool replica size according to the CEPH_REPLICAS set by the user
-    if [[ ${ceph_version%%.*} -eq 0 ]] && [[ ${ceph_version##*.} -lt 87 ]]; then
+    if [[ $(echo $ceph_version | cut -d. -f1) -eq 0 ]] &&
+       [[ $(echo $ceph_version | cut -d. -f2) -lt 87 ]]; then
         sudo ceph -c ${CEPH_CONF_FILE} osd pool set rbd size ${CEPH_REPLICAS}
         sudo ceph -c ${CEPH_CONF_FILE} osd pool set data size ${CEPH_REPLICAS}
         sudo ceph -c ${CEPH_CONF_FILE} osd pool set metadata size ${CEPH_REPLICAS}
