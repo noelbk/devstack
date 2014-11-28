@@ -1,2 +1,3 @@
 ceph    # NOPRIME
+uuid-runtime
 xfsprogs
