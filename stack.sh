@@ -184,6 +184,7 @@ fi
 
 # We're not **root**, make sure ``sudo`` is available
 is_package_installed sudo || install_package sudo
+install_package uuid-runtime
 
 # UEC images ``/etc/sudoers`` does not have a ``#includedir``, add one
 sudo grep -q "^#includedir.*/etc/sudoers.d" /etc/sudoers ||
